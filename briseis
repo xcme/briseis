@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# $FreeBSD$
+#
+# PROVIDE: BRISEIS
+# REQUIRE: DAEMON %%RCLDCONFIG%%
+# BEFORE: LOGIN
+# KEYWORD: shutdown
+#
+# Add the following line to /etc/rc.conf to enable Briseis:
+#
+# briseis_enable="YES"
+#
+
+# Version: 2015.01.27
+
+. /etc/rc.subr
+
+name="briseis"
+rcvar=briseis_enable
+
+load_rc_config $name
+
+: ${briseis_enable="NO"}
+
+command_interpreter="/usr/local/bin/python"
+command="/usr/local/etc/briseis/briseis.py"
+command_args="$1"
+start_precmd="briseis_prestart"
+stop_postcmd="briseis_poststop"
+bris_pidfile="/var/run/briseis.pid" # Do not change it, pls!
+
+briseis_prestart() {
+    chk_pid=`check_pidfile $bris_pidfile $command_interpreter` # Getting PID of process. If no such process PID will be empty.
+    if [ "$chk_pid" == "" ]; then				# If empty PID ...
+        {
+        if [ -f $bris_pidfile ]; then				# ... checking PID-file presence. If file exists...
+            {
+            /bin/rm -f $bris_pidfile				# ... remove this file.
+            }
+        fi
+        }
+    fi
+    }
+
+
+briseis_poststop() {
+    if [ -f $bris_pidfile ]; then # Checking PID-file presence. If file exists...
+        {
+        /bin/rm -f $bris_pidfile # ... remove this file
+        }
+    fi
+    }
+
+run_rc_command "$1"
