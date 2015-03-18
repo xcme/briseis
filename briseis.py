@@ -2,42 +2,22 @@
 #coding=UTF8
 #start            (2014.08.10)
 #released         (2015.03.05)
-#version 1.0.1    (2015.03.11)
+#version 1.0.2    (2015.03.18)
 
 import multiprocessing, threading, netsnmp, time, sys, socket, MySQLdb, logging
 from    math import ceil
 from  daemon import Daemon
-from bconfig import logfile
-from bconfig import snmp_WComm
-from bconfig import snmp_Timeout
-from bconfig import snmp_Retries
-from bconfig import oid_ModelName
-from bconfig import ModelNameRemoveStr
-from bconfig import query_interval
-from bconfig import sleep_interval
-from bconfig import sleep_after_set_requests
-from bconfig import try_fix_query_errors
-from bconfig import max_threads
-from bconfig import max_requests_in_thread
-from bconfig import max_processes
-from bconfig import max_devices_in_process
-from bconfig import oids_set
-from bconfig import oids_walk
-from bconfig import useGraphite
-from bconfig import GraphiteCarbonAddress
-from bconfig import GraphiteCarbonPort
-from bconfig import GraphiteMetricsList
-from bconfig import GraphiteCarbonPrefix
-from bconfig import useAttractor
-from bconfig import AttractorAddress
-from bconfig import AttractorPort
-from bconfig import AttractorMetricsList
-from bconfig import AttractorDupMetric
-from bconfig import PassSetSet
-from bconfig import PassSetWalk
-from bconfig import mysql_addr, mysql_user, mysql_pass, mysql_base
-from bconfig import mysql_query_p
-from bconfig import useMySQLstat, mysql_stat_addr, mysql_stat_user, mysql_stat_pass, mysql_stat_base, mysql_stat_cset, mysql_stat_tabl
+
+from bconfig import logfile, snmp_WComm, snmp_Timeout, snmp_Retries, oid_ModelName
+from bconfig import ModelNameRemoveStr, query_interval, sleep_interval, sleep_after_set_requests
+from bconfig import try_fix_query_errors, max_threads, max_requests_in_thread
+from bconfig import max_processes, max_devices_in_process, oids_set, oids_walk, useGraphite
+from bconfig import GraphiteCarbonAddress, GraphiteCarbonPort, GraphiteMetricsList
+from bconfig import GraphiteCarbonPrefix, useAttractor, AttractorAddress, AttractorPort
+from bconfig import AttractorMetricsList, AttractorDupMetric, PassSetSet, PassSetWalk, mysql_addr
+from bconfig import mysql_user, mysql_pass, mysql_base, mysql_query_p, useMySQLstat
+from bconfig import mysql_stat_addr, mysql_stat_user, mysql_stat_pass, mysql_stat_base
+from bconfig import mysql_stat_cset, mysql_stat_tabl
 
 logging.basicConfig(filename = logfile, level = logging.DEBUG, format = '%(asctime)s  %(message)s')
 
@@ -135,7 +115,7 @@ class prcGetDeviceName(multiprocessing.Process):
 		    ip = devline['ip']
 		    snmp_comm_this_device = snmp_WComm
 		    # Если community для устройства задано явно - переопределяем переменную
-		    if devline['wcomm']<>'': snmp_comm_this_device = devline['wcomm']
+		    if devline['wcomm']!='': snmp_comm_this_device = devline['wcomm']
 		    start_time = time.time()
 		    var = netsnmp.Varbind(oid_ModelName)
 		    query = netsnmp.snmpget(var, Version = 2, DestHost = ip, Community = snmp_comm_this_device, Timeout = snmp_Timeout, Retries = snmp_Retries, UseNumeric = 1)
@@ -201,7 +181,7 @@ class prcSetOIDs(multiprocessing.Process):
 		    ip = devline['ip']
 		    snmp_comm_this_device = snmp_WComm
 		    # Если community для устройства задано явно - переопределяем переменную
-		    if devline['wcomm']<>'': snmp_comm_this_device = devline['wcomm']
+		    if devline['wcomm']!='': snmp_comm_this_device = devline['wcomm']
 		    device_model = devline['mname']
 		    if device_model in oids_set:
 			query = 'skipped'
@@ -262,7 +242,7 @@ class prcWalkOIDs(multiprocessing.Process):
 		    ip = devline['ip']
 		    snmp_comm_this_device = snmp_WComm
 		    # Если community для устройства задано явно - переопределяем переменную
-		    if devline['wcomm']<>'': snmp_comm_this_device = devline['wcomm']
+		    if devline['wcomm']!='': snmp_comm_this_device = devline['wcomm']
 		    device_model = devline['mname']
 		    for stack_oids in oids_walk:
 			start_time = time.time()
@@ -633,11 +613,13 @@ def main():
 		except:
 		    pass
 		for dev_id in KeyList:
+		    # Собираем запросы в очередь. Если счетчик очереди пуст, начинаем запись с SQL-команд, иначе просто добавляем данные
 		    if send_query['count'] == 0:
 			send_query['query']  = "INSERT INTO {0}.{1} ({1}.device_id,{1}.host,{1}.mname,{1}.set_timestamp,{1}.walk_timestamp,{1}.avail,{1}.not_avail,{1}.errors,{1}.time) VALUES ".format(mysql_stat_base,mysql_stat_tabl)
-		    send_query['query'] += "('{0}','{1}','{2}','{3}','{4}',{5},'{6}','{7}','{8}'),".format(dev_id,devices[dev_id]['ip'],devices[dev_id]['mname'],devices[dev_id]['set_timestamp'],devices[dev_id]['walk_timestamp'],devices[dev_id]['avail'],devices[dev_id]['not_avail'],devices[dev_id]['errors'],devices[dev_id]['time'])
+		    send_query['query'] += "('{0}','{1}',SUBSTR('{2}',1,16),'{3}','{4}',{5},'{6}','{7}','{8}'),".format(dev_id,devices[dev_id]['ip'],devices[dev_id]['mname'],devices[dev_id]['set_timestamp'],devices[dev_id]['walk_timestamp'],devices[dev_id]['avail'],devices[dev_id]['not_avail'],devices[dev_id]['errors'],devices[dev_id]['time'])
 		    send_query['count'] += 1
-		    if (send_query['count'] >= 10) or (len(KeyList)-send_query['total']<10):
+		    # Если в очереди накопилось 10 или более запросов или достигнут конец списка, пробуем отправить данные в базу
+		    if (send_query['count'] >= 10) or (dev_id==KeyList[-1]):
 			try:
 			    mysql_stat_cr.execute(send_query['query'][:-1])
 			except:
