@@ -3,6 +3,7 @@
 # $FreeBSD$
 #
 # PROVIDE: BRISEIS
+# REQUIRE: NETWORK
 # REQUIRE: DAEMON %%RCLDCONFIG%%
 # BEFORE: LOGIN
 # KEYWORD: shutdown
@@ -23,7 +24,7 @@ load_rc_config $name
 
 : ${briseis_enable="NO"}
 
-command_interpreter="/usr/local/bin/python"
+command_interpreter="/usr/local/bin/python2"
 command="/usr/local/etc/briseis/briseis.py"
 command_args="$1"
 start_precmd="briseis_prestart"

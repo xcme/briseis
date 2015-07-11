@@ -2,7 +2,7 @@
 #coding=UTF8
 #start            (2014.08.10)
 #released         (2015.03.05)
-#version 1.0.2    (2015.03.18)
+#version 1.1.0    (2015.07.11)
 
 import multiprocessing, threading, netsnmp, time, sys, socket, MySQLdb, logging
 from    math import ceil
@@ -10,7 +10,7 @@ from  daemon import Daemon
 
 from bconfig import logfile, snmp_WComm, snmp_Timeout, snmp_Retries, oid_ModelName
 from bconfig import ModelNameRemoveStr, query_interval, sleep_interval, sleep_after_set_requests
-from bconfig import try_fix_query_errors, max_threads, max_requests_in_thread
+from bconfig import set_iter_delay, try_fix_query_errors, max_threads, max_requests_in_thread
 from bconfig import max_processes, max_devices_in_process, oids_set, oids_walk, useGraphite
 from bconfig import GraphiteCarbonAddress, GraphiteCarbonPort, GraphiteMetricsList
 from bconfig import GraphiteCarbonPrefix, useAttractor, AttractorAddress, AttractorPort
@@ -58,7 +58,7 @@ def Prepare_Devices(dev_tmp): # Функция для подготовки сл�
 	dev[line[0]]={}
     for line in dev_tmp:
 	# Словарь будет иметь вид {id:{'ip':value, 'wcomm':value,...}}
-	dev[line[0]].update({'ip':line[1], 'wcomm':line[2], 'set_timestamp':0, 'walk_timestamp':0, 'skips':0, 'errors':0, 'avail':0, 'not_avail':0, 'time':0, 'data':{}, 'set_res':{}})
+	dev[line[0]].update({'ip':line[1], 'wcomm':line[2], 'set_timestamp':0, 'walk_timestamp':0, 'skips':0, 'errors':0, 'avail':0, 'queries':0, 'time':0, 'data':{}, 'set_res':{}})
     return dev
 
 def GetDevicesIDLists(keylist,itr,iter_cnt,max_threads,max_requests_in_thread):
@@ -133,8 +133,8 @@ class prcGetDeviceName(multiprocessing.Process):
 		    # Инкрементируем счетчик доступности, если ответ был получен
 		    if mname<>'None':
 			devline['avail'] += 1
-		    # Вычисляем процент недоступности устройства
-		    devline['not_avail'] = int(round(100-float(devline['avail'])*100/self.passnum))
+		    # Считаем общее кол-во опросов устройства
+		    devline['queries'] += 1
 		    devline['time'] += query_time
 		    self.devices[id_] = devline
 
@@ -185,11 +185,12 @@ class prcSetOIDs(multiprocessing.Process):
 		    device_model = devline['mname']
 		    if device_model in oids_set:
 			query = 'skipped'
-			for paramname in oids_set[device_model]:
+			for paramname in sorted(oids_set[device_model].keys()):
 			    start_time = time.time()
 			    if paramname in self.WorkMetricsListS:
 				varlist = netsnmp.VarList(*[netsnmp.Varbind(*VarBindItem) for VarBindItem in oids_set[device_model][paramname]])
 				query   = netsnmp.snmpset(*varlist, Version = 2, DestHost = ip, Community = snmp_comm_this_device, Timeout = snmp_Timeout, Retries = snmp_Retries, UseNumeric = 1)
+				time.sleep(set_iter_delay)
 			    # Время, затраченное на опрос
 			    query_time = int((time.time()-start_time)*1000)
 			    devline['time'] += query_time
@@ -250,7 +251,7 @@ class prcWalkOIDs(multiprocessing.Process):
 			varlist = []
 			if device_model in stack_oids:
 			    Get_notWalk = False
-			    for paramname in stack_oids[device_model]:
+			    for paramname in sorted(stack_oids[device_model].keys()):
 				if '.' in paramname:
 				    Get_notWalk = True
 			    # Номер попытки опроса
@@ -453,7 +454,7 @@ def main():
 		# Делаем это в случае, если устройство отсутствует в списке добавленных, т.е. работа с ним уже велась
 		if dev not in added_devices:
 		    devices_tmp[dev]['avail']=devices[dev]['avail']
-		    devices_tmp[dev]['not_avail']=devices[dev]['not_avail']
+		    devices_tmp[dev]['queries']=devices[dev]['queries']
 		    devices_tmp[dev]['errors']=devices[dev]['errors']
 		    devices_tmp[dev]['time']=devices[dev]['time']
 		    devices_tmp[dev]['data']={}
@@ -615,8 +616,8 @@ def main():
 		for dev_id in KeyList:
 		    # Собираем запросы в очередь. Если счетчик очереди пуст, начинаем запись с SQL-команд, иначе просто добавляем данные
 		    if send_query['count'] == 0:
-			send_query['query']  = "INSERT INTO {0}.{1} ({1}.device_id,{1}.host,{1}.mname,{1}.set_timestamp,{1}.walk_timestamp,{1}.avail,{1}.not_avail,{1}.errors,{1}.time) VALUES ".format(mysql_stat_base,mysql_stat_tabl)
-		    send_query['query'] += "('{0}','{1}',SUBSTR('{2}',1,16),'{3}','{4}',{5},'{6}','{7}','{8}'),".format(dev_id,devices[dev_id]['ip'],devices[dev_id]['mname'],devices[dev_id]['set_timestamp'],devices[dev_id]['walk_timestamp'],devices[dev_id]['avail'],devices[dev_id]['not_avail'],devices[dev_id]['errors'],devices[dev_id]['time'])
+			send_query['query']  = "INSERT INTO {0}.{1} ({1}.device_id,{1}.host,{1}.mname,{1}.set_timestamp,{1}.walk_timestamp,{1}.avail,{1}.queries,{1}.errors,{1}.time) VALUES ".format(mysql_stat_base,mysql_stat_tabl)
+		    send_query['query'] += "('{0}','{1}',SUBSTR('{2}',1,16),'{3}','{4}',{5},'{6}','{7}','{8}'),".format(dev_id,devices[dev_id]['ip'],devices[dev_id]['mname'],devices[dev_id]['set_timestamp'],devices[dev_id]['walk_timestamp'],devices[dev_id]['avail'],devices[dev_id]['queries'],devices[dev_id]['errors'],devices[dev_id]['time'])
 		    send_query['count'] += 1
 		    # Если в очереди накопилось 10 или более запросов или достигнут конец списка, пробуем отправить данные в базу
 		    if (send_query['count'] >= 10) or (dev_id==KeyList[-1]):

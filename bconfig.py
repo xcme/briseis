@@ -1,3 +1,4 @@
+#coding=UTF8
 from userdict import *
 
 #[SNMP]
@@ -15,14 +16,16 @@ max_threads            = 8
 max_requests_in_thread = 12
 
 # Params
-logfile = "/usr/local/etc/briseis/briseis.log"
+logfile = "/var/log/briseis.log"
 ModelNameRemoveStr=[
     'D-Link ',
     ' Fast Ethernet Switch',
+    ' Gigabit Ethernet Switch',
 ]
 query_interval = 300
 sleep_interval = 1
 sleep_after_set_requests = 3
+set_iter_delay = 0
 try_fix_query_errors = 1
 
 # MySQL
@@ -46,7 +49,7 @@ mysql_stat_tabl = "stats"
 useGraphite = False
 GraphiteCarbonAddress = "graphite.localhost"
 GraphiteCarbonPort = 2003
-GraphiteMetricsList =  ['RX','TX']
+GraphiteMetricsList =  ['RX','TX','CT','CPU']
 GraphiteCarbonPrefix = "sw."
 
 # Attractor
@@ -107,6 +110,7 @@ oids_walk=[{
     'DES-3200-28/C1':RxTx28,
     'DES-3200-18/C1':RxTx18,
     'DES-3028':RxTx28,
+    'DGS-3000-24TC':RxTx24,
 },
     {
     'DES-3200-28':DuplexStatus28,
@@ -142,5 +146,16 @@ oids_walk=[{
     'DES-3200-28/C1':FWVer,
     'DES-3200-18/C1':FWVer,
     'DES-3028':FWVer,
-}
+},
+    {
+    'DES-3200-28/C1':swTempCurr,
+},
+    {
+    'DES-3200-28':CPUutil,
+    'DES-3200-18':CPUutil,
+    'DES-3200-28/C1':CPUutil,
+    'DES-3200-18/C1':CPUutil,
+    'DES-3028':CPUutil,
+    'DGS-3000-24TC':CPUutil,
+},
 ]
