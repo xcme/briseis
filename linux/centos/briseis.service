@@ -1,0 +1,18 @@
+#
+# Systemd unit file for Briseis
+#
+
+[Unit]
+Description=Briseis
+Documentation=https://github.com/xcme/briseis
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/python2  /usr/local/etc/briseis/briseis.py start
+ExecStop=/usr/bin/python2   /usr/local/etc/briseis/briseis.py stop
+ExecReload=/usr/bin/python2 /usr/local/etc/briseis/briseis.py restart
+PIDFile=/var/run/briseis.pid
+
+[Install]
+WantedBy=multi-user.target
