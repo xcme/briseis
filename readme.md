@@ -148,9 +148,9 @@ postgresql_pass | Пароль.
 postgresql_base | Имя базы данных.
 use_postgresql  | Параметр, определяющий, использовать ли MySQL либо же PostgreSQL (когда установлен в *True*).
 
-Параметр      | Описание
-------------- | --------
-mysql_query_p | Запрос к базе данных для получения списка устройств. Запрос должен возвращать таблицу вида '*id*', '*ip*', '*write_community*'.
+Параметр  | Описание
+--------- | --------
+db_query  | Запрос к базе данных для получения списка устройств. Запрос должен возвращать таблицу вида '*id*', '*ip*', '*write_community*'.
 
 Параметр        | Описание
 --------------- | --------
@@ -411,12 +411,13 @@ time           | Суммарное время, затраченное на ра
 
 ## Установка под Linux (пример для Centos 7)
 + Выполните команду: **git clone https://github.com/xcme/briseis.git**
-+ Скопируйте файл '**briseis.service**' из директории '*linux/centos/*' в '*/etc/systemd/system/*'.
++ Скопируйте файл '**briseis.service**' из директории '*./linux/centos/*' в '*/etc/systemd/system/*'.
 + Убедитесь, что firewall разрешает SNMP-запросы.
 + Запустите сервис командой **systemctl start briseis**.
++ Добавьте автозапуск сервиса при загрузке системы командой **systemctl enable briseis**.
 
 ## Установка под FreeBSD
-+ Скопируйте файл **briseis** в '*/usr/local/etc/rc.d/*', а остальные файлы в '*/usr/local/etc/briseis/*'.  
++ Скопируйте файл **briseis** в '*/usr/local/etc/rc.d/*', а остальные файлы в '*/usr/local/etc/briseis/*'.
 + Добавьте строку **briseis_enable="YES"** в файл '*/etc/rc.conf*'.
 + Убедитесь, что firewall разрешает SNMP-запросы.
 + Запустите сервис командой **service briseis start**.
