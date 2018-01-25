@@ -2,7 +2,7 @@
 #coding=UTF8
 #started              (2014.08.10)
 #released             (2015.03.05)
-#current ver. 4.1.23  (2018.01.23)
+#current ver. 4.1.25  (2018.01.25)
 # Формат 'version': <текущий год - год начала разработки>.<месяц последнего изменения>.<день последнего изменения>
 
 import multiprocessing, threading, netsnmp, time, sys, socket, MySQLdb, logging, os, psycopg2
@@ -229,7 +229,8 @@ class prcGetDeviceName(multiprocessing.Process):
 		    query_time = int((time.time()-start_time)*1000)
 		    # Из полученных данных формируем словарь, где ключом является OID из identify_oids, а значением - полученное в ходе опроса значение:
 		    # { '.1.3.6.1.2.1.1.1.0' : $sys_descr, '.1.3.6.1.2.1.1.4.0' : $sys_contact, '.1.3.6.1.2.1.1.5.0' : $sys_name }
-		    sys_oids = dict([ [ '.'.join([var.tag, var.iid]), var.val ] for var in snmp_var ])
+		    # Для случаев, когда netsnmp вернул значение None, перестраховываемся и используем преобразование в строку. Модель устройства затем будет определена как None
+		    sys_oids = dict([ [ '.'.join([str(var.tag), str(var.iid)]), var.val ] for var in snmp_var ])
 		    # Формируем словарь dev_info, комбинируя identify_oids и sys_oids. Если устройство недоступно, то все три значения будут None
 		    dev_info = {'sys_descr': None, 'sys_contact': None, 'sys_name': None}
 		    try:
